@@ -1,9 +1,11 @@
 import React from 'react';
 import ReactDom from 'react-dom';
+import Editor from './components/editor';
 
 
-ReactDom.render( , document.getElementById('root'))
+ReactDom.render( <Editor/> , document.getElementById('root'))
 
+/*
 function getPageList(){
     $("h1").remove();
     $.get("./api", data=>{
@@ -27,3 +29,4 @@ $('button').onclick(()=>{
         alert("Page already exists")
     })
 });
+*/
