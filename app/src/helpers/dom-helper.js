@@ -36,7 +36,7 @@ export default class DOMHelper{
     //convert dom structure to string
     static serializeDOMToString(dom){
         const serializer= new XMLSerializer(); 
-        return serializer.serializeDOMToString(dom); 
+        return serializer.serializeToString(dom); 
     }
     
     static unwrapTextNodes(dom){

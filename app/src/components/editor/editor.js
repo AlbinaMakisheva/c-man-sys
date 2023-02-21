@@ -2,6 +2,11 @@ import axios from 'axios';
 import React, {Component} from 'react';
 import '../../helpers/iframeLoader.js';
 import DOMHelper from '../../helpers/dom-helper';
+import EditorText from '../editor-text';
+import UIKit from 'uikit';
+import Spinner from '../spinner';
+import ConfirmModal from '../confirm-modal';
+import ChooseModal from '../choose-modal';
 
 
 
@@ -12,25 +17,36 @@ constructor(){
 
     this.state={
         pageList: [],
-        newPageName:''
+        newPageName:'',
+        loading: true
     }
     this.createNewPage= this.createNewPage.bind(this);
+    this.isLoading= this.isLoading.bind(this);
+    this.isLoaded= this.isLoaded.bind(this);
+    this.save= this.save.bind(this);
+    this.init= this.init.bind(this);
+
+
 }
 
 //life cycle comp for sending data to server after (!) render
 componentDidMount(){
-    this.init(this.currentPage)
+    this.init(null, this.currentPage)
 }
 
 
-init(page){
+init(e, page){
+    if (e){
+        e.preventDefault();
+    }
+    this.isLoaded();
     this.iframe= document.querySelector('iframe');
-    this.open(page);
+    this.open(page, this.isLoaded);
     this.loadPageList();
 }
 
 //after creating page
-open(page){
+open(page, cb){
     this.currentPage= page;
 
     axios       
@@ -43,40 +59,57 @@ open(page){
         })
         .then(DOMHelper.serializeDOMToString) // convert dom to string because cannot send dom to server
         .then(html=> axios.post('./api/saveTempPage.php', {html})) //send received html string to php file
-        .then(()=> this.iframe.load('../temp.html')) //load temp to iframe
+        .then(()=> this.iframe.load('../sondbcoqwubcilbcgl.html')) //load temp to iframe
+        .then(()=> axios.post('./api/deleteTempPage.php'))
         .then(()=> this.enableEditing()) // turn on element editing
+        .then(()=> this.injectStyles())
+        .then(cb)
     
 };
 
-save(){
+save(onsuccess, onerror){
+    this.isLoading();
     const newDOM= this.virtualDOM.cloneNode(this.virtualDOM);
     DOMHelper.unwrapTextNodes(newDOM);
     const html= DOMHelper.serializeDOMToString(newDOM);
     axios
         .post("./api/savePage.php", {pageName:  this.currentPage , html })
+        .then(onsuccess)
+        .catch(onerror)
+        .finally(this.isLoaded);
 }
 
 enableEditing(){
     this.iframe.contentDocument.body.querySelectorAll('text-editor').forEach(element=>{
-        element.contentEditable= 'true';
-        element.addEventListener('input', ()=>{
-            this.onTextEdit(element); //method for sync all changes
-        })
+        
+        const id= element.getAttribute('nodeid');
+        const virtualElement= this.virtualDOM.body.querySelector(`[nodeid="${id}"]`)
+        //for every text node
+        new EditorText(element, virtualElement)
     });
 }
 
-//for sync of changes
-// write the same element in clean copy
-onTextEdit(element){
-    const id= element.getAttribute('nodeid');
-    this.virtualDOM.body.querySelector(`[nodeid="${id}"]`).innerHTML= element.innerHTML;
+injectStyles(){
+    const style= this.iframe.contentDocument.createElement('style');
+    style.innerHTML= `
+    text-editor:focus{
+        outline: 3px solid red;
+        outline-offset: 8px;
+    }
+    text-editor:hover{
+        outline: 3px solid orange;
+        outline-offset: 8px;
+    }`;
+
+    this.iframe.contentDocument.head.appendChild(style);
 }
+
 
 
 
 loadPageList(){
     axios
-        .get('./api')
+        .get('./api/pageList.php')
         .then(res=> this.setState({pageList: res.data})) //clear data
 }
 
@@ -94,26 +127,43 @@ deletePage(page){
         .catch(()=> alert('Page doesnt exists'));
 }
 
+isLoading(){
+    this.setState({
+        loading: true
+    })
+}
+
+isLoaded(){
+    this.setState({
+        loading: false
+    })
+}
+
  render(){
-    // const {pageList}= this.state; //get param from obj
-    // const pages= pageList.map((page, i )=> {
-    //     return (
-    //         <h1 key={i}> {page}
-    //             <a href='#' onClick={()=> this.deletePage(page)}>X</a>
-    //          </h1>
-    //     )
-    //  });
+    const modal=true;
+    const {loading, pageList}= this.state;
+    let spinner;
+
+    loading? spinner=<Spinner active/> : spinner=<Spinner/>
 
     return(
-        <>
-        <button onClick={()=> this.save()}>Click</button>
-        <iframe src={this.currentPage} frameBorder='0'></iframe>
+        
+
+        <>            
+            <iframe src={this.currentPage} frameBorder='0'></iframe>
+
+            {spinner}
+
+            <div className= 'panel'> 
+                <button className= 'uk-button uk-button-primary uk-margin-small-right' uk-toggle= 'target: #modal-open'>Open</button>
+                <button className= 'uk-button uk-button-primary' uk-toggle= 'target: #modal-save'>Ready</button>
+
+            </div>
+
+            <ConfirmModal modal={modal} target={'modal-save'} method={this.save}/>
+            <ChooseModal modal={modal} target={'modal-open'} data={pageList} redirect={this.init}/>
+        
         </>
-        // <>
-        //     <input onChange={(e)=> {this.setState({newPageName: e.target.value})}} type='text'/>
-        //     <button onClick={this.createNewPage}>Create page</button>
-        //     {pages}
-        // </>
     )
 }
 
