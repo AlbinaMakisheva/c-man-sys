@@ -11,10 +11,7 @@ const ConfirmModal=({modal, target, method})=>{
                 <p className="uk-text-right">
 
                 <button className="uk-button uk-button-default uk-margin-small-right uk-modal-close" type="button">Cancel</button>
-                <button className="uk-button uk-button-primary uk-modal-close" type="button" onClick={()=> 
-                    method(()=> { UIKit.notification({message: 'Saved', status: 'success'})},
-                            ()=> { UIKit.notification({message: 'Error', status: 'danger'})}
-                    )}>Save</button>
+                <button className="uk-button uk-button-primary uk-modal-close" type="button" onClick={()=> method()}>Save</button>
                 </p>
             </div>
         </div>

@@ -4,6 +4,11 @@
 if(file_exists($_FILES["image"]["tmp_name"]) && is_uploaded_file($_FILES["image"]["tmp_name"])){
     $fileExt= explode("/", $_FILES["image"]["type"])[1]; //take arr, divide by /, get second part
     $fileName= uniqid() . "." . $fileExt;
+
+    if(!is_dir("../../img/")){
+        mrdir("../../img/");
+    }
+
     move_uploaded_file($_FILES["image"]["tmp_name"], "../../img/" . $fileName);
     echo json_encode(array("src"=> $fileName));
 }

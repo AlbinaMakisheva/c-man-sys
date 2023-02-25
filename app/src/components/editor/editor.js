@@ -61,7 +61,7 @@ open(page, cb){
         .then(DOMHelper.wrapTextNodes)// RECEIVES RESULT OF PREVIOUS AND USES IN F to wrap in special tag
         .then(DOMHelper.wrapImages)
         .then(dom=> {// save clean copy to virtual
-            this.virtualDOM= dom;
+            this.virtualDom= dom;
             return dom;
         })
         .then(DOMHelper.serializeDOMToString) // convert dom to string because cannot send dom to server
@@ -76,16 +76,16 @@ open(page, cb){
     
 };
 
-async save(onsuccess, onerror){
+async save(){
     this.isLoading();
-    const newDOM= this.virtualDOM.cloneNode(this.virtualDOM);
+    const newDOM= this.virtualDom.cloneNode(this.virtualDom);
     DOMHelper.unwrapTextNodes(newDOM);
     DOMHelper.unwrapImages(newDOM);
     const html= DOMHelper.serializeDOMToString(newDOM);
     await axios
         .post("./api/savePage.php", {pageName:  this.currentPage , html })
-        .then(onsuccess)
-        .catch(onerror)
+        .then(()=> this.showNotification('Saved!', 'success'))
+        .catch(()=> this.showNotification('Failed :(', 'danger'))
         .finally(this.isLoaded);
 
     this.loadBackupsList();
@@ -95,7 +95,7 @@ enableEditing(){
     this.iframe.contentDocument.body.querySelectorAll('text-editor').forEach(element=>{
         
         const id= element.getAttribute('nodeid');
-        const virtualElement= this.virtualDOM.body.querySelector(`[nodeid="${id}"]`)
+        const virtualElement= this.virtualDom.body.querySelector(`[nodeid="${id}"]`)
         //for every text node
         new EditorText(element, virtualElement)
     });
@@ -103,9 +103,9 @@ enableEditing(){
     this.iframe.contentDocument.body.querySelectorAll('[editableimgid]').forEach(element=>{
         
         const id= element.getAttribute('[editableimgid]');
-        const virtualElement= this.virtualDOM.body.querySelector(`[editableimgid="${id}"]`)
+        const virtualElement= this.virtualDom.body.querySelector(`[editableimgid="${id}"]`)
         //for every img
-        new EditorImages(element, virtualElement)
+        new EditorImages(element, virtualElement, this.isLoading, this.isLoaded, this.showNotification)
     });
 }
 
@@ -130,6 +130,11 @@ injectStyles(){
 }
 
 
+showNotification(message, status){
+    UIKit.notification({message, status});
+
+}
+
 
 
 loadPageList(){
@@ -141,7 +146,7 @@ loadPageList(){
 loadBackupsList(){
     axios   
         .get("./backups/backups.json")
-        .then(res=> this.setState({backupsList: res.data.filer(backup=> {return backup.page=== this.currentPage})}))
+        .then(res=> this.setState({backupsList: res.data.filer(backup=> {return backup.page === this.currentPage; })}))
 }
 
 // createNewPage(){
@@ -162,7 +167,7 @@ restoreBackup(e, backup){
     if(e) {
         e.preventDefault();
     }
-    UIKit.modal.confirm("Are sure that you want restore?", {label:{ok: 'Reastore', cancel:'Cancel'}})
+    UIKit.modal.confirm("Are sure that you want restore?", {labels:{ok: 'Reastore', cancel:'Cancel'}})
     .then(()=>{
         this.isLoading();
         return axios   
@@ -205,7 +210,7 @@ isLoaded(){
             <ConfirmModal modal={modal} target={'modal-save'} method={this.save}/>
             <ChooseModal modal={modal} target={'modal-open'} data={pageList} redirect={this.init}/>
             <ChooseModal modal={modal} target={'modal-backup'} data={backupsList} redirect={this.restoreBackup}/>
-            (this.virtualDOM ?   <EditorMeta modal={modal} target={'modal-meta'} virtualDom={this.virtualDOM}/> : false)
+            (this.virtualDom ?   <EditorMeta modal={modal} target={'modal-meta'} virtualDom={this.virtualDom}/> : false)
         </>
     )
 }

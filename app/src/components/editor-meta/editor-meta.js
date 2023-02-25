@@ -16,25 +16,25 @@ export default class EditorMeta extends Component{
     }
 
     componentDidUpdate(prevProps){
-        if(this.props.vitualDom !== prevProps.virtualDom){
-            this.getMeta(this.props.vitualDom )
+        if(this.props.virtualDom !== prevProps.virtualDom){
+            this.getMeta(this.props.virtualDom)
         }
     }
 
-    getMeta(virtualDOM){
-        this.title= virtualDOM.head.querySelector('title') || virtualDOM.head.appendChild(virtualDom.createElement('title'));
-        this.keywords= virtualDOM.head.querySelector('meta[name="keywords"]');
-        this.description= virtualDOM.head.querySelector('meta[name="description"]');
+    getMeta(virtualDom){
+        this.title= virtualDom.head.querySelector('title') || virtualDom.head.appendChild( virtualDom.createElement('title'));
+        this.keywords= virtualDom.head.querySelector('meta[name="keywords"]');
+        this.description= virtualDom.head.querySelector('meta[name="description"]');
 
         if(!this.keywords){
-            this.keywords= virtualDOM.head.appendChild(virtualDom.createElement('meta'));
+            this.keywords= virtualDom.head.appendChild(virtualDom.createElement('meta'));
             this.keywords.setAtttibute("name", "keywords");
             this.keywords.setAtttibute("content", "");
 
         }
 
         if(!this.description){
-            this.description= virtualDOM.head.appendChild(virtualDom.createElement('meta'));
+            this.description= virtualDom.head.appendChild(virtualDom.createElement('meta'));
             this.description.setAtttibute("name", "description");
             this.description.setAtttibute("content", "");
 
