@@ -7,6 +7,9 @@ import UIKit from 'uikit';
 import Spinner from '../spinner';
 import ConfirmModal from '../confirm-modal';
 import ChooseModal from '../choose-modal';
+import Panel from '../panel';
+import EditorMeta from '../editor-meta';
+import EditorImages from '../editor-images';
 
 
 
@@ -18,13 +21,15 @@ constructor(){
     this.state={
         pageList: [],
         newPageName:'',
+        backupsList:[],
         loading: true
     }
-    this.createNewPage= this.createNewPage.bind(this);
+    // this.createNewPage= this.createNewPage.bind(this);
     this.isLoading= this.isLoading.bind(this);
     this.isLoaded= this.isLoaded.bind(this);
     this.save= this.save.bind(this);
     this.init= this.init.bind(this);
+    this.restoreBackup= this.restoreBackup.bind(this);
 
 
 }
@@ -39,10 +44,11 @@ init(e, page){
     if (e){
         e.preventDefault();
     }
-    this.isLoaded();
+    this.isLoading();
     this.iframe= document.querySelector('iframe');
     this.open(page, this.isLoaded);
     this.loadPageList();
+    this.loadBackupsList();
 }
 
 //after creating page
@@ -53,6 +59,7 @@ open(page, cb){
         .get(`../${page}?rnd=${Math.random()}`) //get req to server, receive indexed page + against caching
         .then(res=> DOMHelper.parseStrToDOM(res.data)) //clear structure convert to dom structure
         .then(DOMHelper.wrapTextNodes)// RECEIVES RESULT OF PREVIOUS AND USES IN F to wrap in special tag
+        .then(DOMHelper.wrapImages)
         .then(dom=> {// save clean copy to virtual
             this.virtualDOM= dom;
             return dom;
@@ -64,19 +71,24 @@ open(page, cb){
         .then(()=> this.enableEditing()) // turn on element editing
         .then(()=> this.injectStyles())
         .then(cb)
+
+    this.loadBackupsList();
     
 };
 
-save(onsuccess, onerror){
+async save(onsuccess, onerror){
     this.isLoading();
     const newDOM= this.virtualDOM.cloneNode(this.virtualDOM);
     DOMHelper.unwrapTextNodes(newDOM);
+    DOMHelper.unwrapImages(newDOM);
     const html= DOMHelper.serializeDOMToString(newDOM);
-    axios
+    await axios
         .post("./api/savePage.php", {pageName:  this.currentPage , html })
         .then(onsuccess)
         .catch(onerror)
         .finally(this.isLoaded);
+
+    this.loadBackupsList();
 }
 
 enableEditing(){
@@ -86,6 +98,14 @@ enableEditing(){
         const virtualElement= this.virtualDOM.body.querySelector(`[nodeid="${id}"]`)
         //for every text node
         new EditorText(element, virtualElement)
+    });
+
+    this.iframe.contentDocument.body.querySelectorAll('[editableimgid]').forEach(element=>{
+        
+        const id= element.getAttribute('[editableimgid]');
+        const virtualElement= this.virtualDOM.body.querySelector(`[editableimgid="${id}"]`)
+        //for every img
+        new EditorImages(element, virtualElement)
     });
 }
 
@@ -99,7 +119,12 @@ injectStyles(){
     text-editor:hover{
         outline: 3px solid orange;
         outline-offset: 8px;
-    }`;
+    }
+    [editableimgid]:hover{
+        outline: 3px solid orange;
+        outline-offset: 8px;
+    }
+    `;
 
     this.iframe.contentDocument.head.appendChild(style);
 }
@@ -113,18 +138,39 @@ loadPageList(){
         .then(res=> this.setState({pageList: res.data})) //clear data
 }
 
-createNewPage(){
-    axios
-        .post('./api/createNewPage.php', {'name': this.state.newPageName})
-        .then(this.loadPageList())
-        .catch(()=> alert('Page already exists'))
+loadBackupsList(){
+    axios   
+        .get("./backups/backups.json")
+        .then(res=> this.setState({backupsList: res.data.filer(backup=> {return backup.page=== this.currentPage})}))
 }
 
-deletePage(page){
-    axios   
-        .post('./api/deletePage.php', {'name': page})
-        .then(this.loadPageList())
-        .catch(()=> alert('Page doesnt exists'));
+// createNewPage(){
+//     axios
+//         .post('./api/createNewPage.php', {'name': this.state.newPageName})
+//         .then(this.loadPageList())
+//         .catch(()=> alert('Page already exists'))
+// }
+
+// deletePage(page){
+//     axios   
+//         .post('./api/deletePage.php', {'name': page})
+//         .then(this.loadPageList())
+//         .catch(()=> alert('Page doesnt exists'));
+// }
+
+restoreBackup(e, backup){
+    if(e) {
+        e.preventDefault();
+    }
+    UIKit.modal.confirm("Are sure that you want restore?", {label:{ok: 'Reastore', cancel:'Cancel'}})
+    .then(()=>{
+        this.isLoading();
+        return axios   
+            .post('./api/restoreBackup.php', {'page': this.currentPage, 'file': backup})
+    })
+    .then(()=> {
+        this.open(this.currentPage, this.isLoaded);
+    })
 }
 
 isLoading(){
@@ -141,7 +187,7 @@ isLoaded(){
 
  render(){
     const modal=true;
-    const {loading, pageList}= this.state;
+    const {loading, pageList, backupsList}= this.state;
     let spinner;
 
     loading? spinner=<Spinner active/> : spinner=<Spinner/>
@@ -150,19 +196,16 @@ isLoaded(){
         
 
         <>            
-            <iframe src={this.currentPage} frameBorder='0'></iframe>
+            <iframe src='' frameBorder='0'></iframe>
 
+            <input id='img-upload' type='file' accept='image/*' style={{display: 'none'}}></input>
             {spinner}
 
-            <div className= 'panel'> 
-                <button className= 'uk-button uk-button-primary uk-margin-small-right' uk-toggle= 'target: #modal-open'>Open</button>
-                <button className= 'uk-button uk-button-primary' uk-toggle= 'target: #modal-save'>Ready</button>
-
-            </div>
-
+            <Panel/>
             <ConfirmModal modal={modal} target={'modal-save'} method={this.save}/>
             <ChooseModal modal={modal} target={'modal-open'} data={pageList} redirect={this.init}/>
-        
+            <ChooseModal modal={modal} target={'modal-backup'} data={backupsList} redirect={this.restoreBackup}/>
+            (this.virtualDOM ?   <EditorMeta modal={modal} target={'modal-meta'} virtualDom={this.virtualDOM}/> : false)
         </>
     )
 }
